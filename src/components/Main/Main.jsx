@@ -1,4 +1,4 @@
-import React, { useContext } from 'react'
+import { useContext } from 'react'
 import './Main.css'
 import { assets } from '../../assets/assets'
 import { Context } from '../../context/Context'
@@ -37,7 +37,7 @@ const Main = () => {
                 </div>
 
                 <div className="card">
-                    <p>Breifl summarize this concept: urban planning</p>
+                    <p>Briefly summarize this concept: urban planning</p>
                     <img src={assets.bulb_icon} alt="" />
                 </div>
 

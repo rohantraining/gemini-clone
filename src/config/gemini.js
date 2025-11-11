@@ -1,47 +1,50 @@
-// google karo gemini api
+// src/config/gemini.js
+import { GoogleAuth } from "google-auth-library";
 
-/*
- * Install the Generative AI SDK
- *
- * $ npm install @google/generative-ai
- *
- * See the getting started guide for more information
- * https://ai.google.dev/gemini-api/docs/get-started/node
- */
+const MODEL = "gemini-2.0-flash";
+const keyFile = "C:/Users/ROHAN/Downloads/Gemini.json";
 
-import {
-    GoogleGenerativeAI,
-    HarmCategory,
-    HarmBlockThreshold,
-  } from "@google/generative-ai" ;
-  
-  const apiKey = "AIzaSyBZ-a1yvZ7_02IAnslusNUpuiBUX3ZnMK0";
-  const genAI = new GoogleGenerativeAI(apiKey);
-  
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-  });
-  
-  const generationConfig = {
-    temperature: 1,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 8192,
-    responseMimeType: "text/plain",
-  };
-  
-  async function run(prompt) {
-    const chatSession = model.startChat({
-      generationConfig,
-   // safetySettings: Adjust safety settings
-   // See https://ai.google.dev/gemini-api/docs/safety-settings
-      history: [
-      ],
-    });
-  
-    const result = await chatSession.sendMessage(prompt);
-    console.log(prompt, result.response.text());
-    return result.response.text();
+const auth = new GoogleAuth({
+  keyFile,
+  scopes: ["https://www.googleapis.com/auth/generative-language"],
+});
+
+// Create client once, reuse for all requests
+let cachedClient = null;
+
+async function getClient() {
+  if (!cachedClient) cachedClient = await auth.getClient();
+  return cachedClient;
+}
+
+export default async function run(prompt) {
+  try {
+    const client = await getClient();
+    const token = await client.getAccessToken();
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    );
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+
+    return (
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No response from model."
+    );
+  } catch (err) {
+    console.error("Error in gemini run():", err);
+    throw err;
   }
-  
-  export default run;
+}

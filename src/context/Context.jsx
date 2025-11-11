@@ -1,11 +1,11 @@
 import { createContext, useState } from "react";
-import run from "../config/gemini";
+import PropTypes from 'prop-types';
 
 //creating context hook
 export const Context = createContext();
 
 //creating contextProvider function passing parameter props
-const ContextProvider = (props) => {
+const ContextProvider = ({ children }) => {
   //taking input from user
   // creating state variables and setter functions
   const [input, setInput] = useState("");
@@ -16,11 +16,11 @@ const ContextProvider = (props) => {
   const [resultData, setResultData] = useState("");
 
   //generating response with typing effect
-  const delayPara = (index, nextWord) => {
-    setTimeout(function () {
-      setResultData((prev) => prev + nextWord);
-    }, 75 * index);
-  };
+  // const delayPara = (index, nextWord) => {
+  //   setTimeout(function () {
+  //     setResultData((prev) => prev + nextWord);
+  //   }, 75 * index);
+  // };
 
   //logic for new chat
   const newChat = () => {
@@ -30,59 +30,74 @@ const ContextProvider = (props) => {
   }
 
   // creating function onSent
-  const onSent = async (prompt) => {
-    setResultData(""); // clear previous response, so that previous response will be removed from state variable
-    setLoading(true); // show loading animation on screen
-    setShowResult(true);
+//   const fetchResponse = async (promptText) => {
+//   try {
+//     const res = await fetch("http://localhost:5000/api/gemini", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ prompt: promptText }),
+//     });
+//     const data = await res.json();
+//     return data.result;
+//   } catch (err) {
+//     console.error("Error fetching response:", err);
+//     return "Something went wrong.";
+//   }
+// };
 
-    let response;
+const onSent = async (prompt) => {
+  const userInput = prompt ?? input; // Use prompt if defined, else input
+  if (!userInput.trim()) return; // Prevent empty input
 
-    //agar prompt defined hain toh response aayega
-    // agar prompt undefined hain toh prev prompts ke input dikhayega
-    if(prompt != undefined){
+  setResultData("");
+  setLoading(true);
+  setShowResult(true);
 
+  setPrevPrompts((prev) => {
+  if (!prev.includes(userInput)) {
+    return [...prev, userInput];
+  }
+  return prev;
+});
+setRecentPrompt(userInput);
 
-        response = await run(prompt)
-        setRecentPrompt(prompt)
-    }else{
-        setPrevPrompts(prev=>[...prev,input])
-        setRecentPrompt(input)
-        response = await run(input)
+  try {
+    // Call backend instead of frontend gemini.js
+    const res = await fetch("http://localhost:5000/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: userInput }),
+    });
 
-    }
+    const data = await res.json();
+    let responseText = data.result ?? "Sorry, no response";
 
-    // Remove all leading '#' characters
-    let cleanResponse = response.replace(/^#+\s?/gm, "");
+    // Clean response: remove leading '#' and replace '**' with <b> tags
+    let cleanResponse = responseText.replace(/^#+\s?/gm, "");
+    let parts = cleanResponse.split("**");
+    let formatted = parts
+      .map((part, i) => (i % 2 === 1 ? `<b>${part}</b>` : part))
+      .join("");
+    formatted = formatted.split("*").join("<br>");
 
-    //replace ** with bold tag
-    let responseArray = cleanResponse.split("**");
+    // Typing effect
+    const words = formatted.split(" ");
+    words.forEach((word, i) =>
+      setTimeout(() => {
+        setResultData((prev) => prev + word + " ");
+        if (i === words.length - 1) setLoading(false); // hide loader after last word
+      }, 75 * i)
+    );
 
-    let newResponse = ""; //for removing undefined in the start of each prompt
+  } catch (err) {
+    console.error("Error fetching Gemini:", err);
+    setResultData("Error: could not get response");
+    setLoading(false);
+  }
 
-    // Process responseArray to add bold tags
-    for (let i = 0; i < responseArray.length; i++) {
-      // when index is 0 or even
-      if (i === 0 || i % 2 === 0) {
-        newResponse += responseArray[i];
-      } else {
-        // wrap in <b> tags
-        newResponse += "<b>" + responseArray[i] + "</b>";
-      }
-    }
+  setInput(""); // clear input after sending
+};
 
-    // Replace '*' with <br> tags for new lines
-    let newResponse2 = newResponse.split("*").join("<br>");
-
-    //space means another word used space to split the string
-    let newResponseArray = newResponse2.split(" "); // Declare newResponseArray here
-    for (let i = 0; i < newResponseArray.length; i++) {
-      const nextWord = newResponseArray[i];
-      delayPara(i, nextWord + " ");
-    }
-    
-    setLoading(false); // hide loading animation
-    setInput(""); // clear input field
-  };
 
   // Example usage
   // onSent("what is react js")
@@ -103,8 +118,13 @@ const ContextProvider = (props) => {
   };
 
   return (
-    <Context.Provider value={contextValue}>{props.children}</Context.Provider>
+    <Context.Provider value={contextValue}>{children}</Context.Provider>
   );
+};
+
+// PropTypes validation
+ContextProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export default ContextProvider;
