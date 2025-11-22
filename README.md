@@ -11,3 +11,8 @@ Currently, two official plugins are available:
 # gemini-clone
 React Based Gemini AI
 >>>>>>> origin/master
+
+
+//commands to run GEMINI CLONE
+1)node server.js
+2)npm run devs
